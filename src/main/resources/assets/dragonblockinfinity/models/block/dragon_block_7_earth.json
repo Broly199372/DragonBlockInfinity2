@@ -1,4 +1,7 @@
 {
+  "mod_id": "dragonblockinfinity",
+  "texture_path": "textures/blocks/block_dragon_block7_earth.png",
+  "texture_name": "block_dragon_block7_earth",
   "elements": [
     {
       "name": "cube",
@@ -607,5 +610,58 @@
       "type": "cube",
       "uuid": "9a3f00b4-cbce-bc44-a3e6-3fcc4f5e8010"
     }
-  ]
+  ],
+  "display": {
+    "gui": {
+      "rotation": [
+        30,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.625,
+        0.625,
+        0.625
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  }
 }
