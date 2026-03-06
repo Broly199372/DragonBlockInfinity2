@@ -11,6 +11,11 @@ public class ModRegister {
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(ModRegister::commonSetup);
         modEventBus.addListener(ModRegister::registerCapabilities);
+
+        com.bernardo.dbi.block.BlockRegistry.BLOCKS.register(modEventBus);
+        com.bernardo.dbi.block.entity.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        com.bernardo.dbi.item.ItemRegistry.ITEMS.register(modEventBus);
+        com.bernardo.dbi.item.ItemRegistry.TABS.register(modEventBus);
     }
 
     private static void commonSetup(FMLCommonSetupEvent event) {

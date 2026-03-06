@@ -122,6 +122,10 @@ Adding Libraries to Inheritance
 Reading Input: /workspaces/DragonBlockInfinity2/build/libs/DragonBlockIfinity-1.0.0.jar
 Adding input to inheritance map
 Processing entries
+Conflicting propagated mapping for com/bernardo/dbi/client/screen/CaracterScreen/isPauseScreen()Z from net/minecraft/client/gui/screens/Screen/isPauseScreen()Z: isPauseScreen -> m_7043_
+Conflicting propagated mapping for com/bernardo/dbi/client/screen/CaracterScreen/render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V from net/minecraft/client/gui/screens/Screen/render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V: render -> m_88315_
+Conflicting propagated mapping for com/bernardo/dbi/client/screen/CaracterScreen/init()V from net/minecraft/client/gui/screens/Screen/init()V: init -> m_7856_
+Conflicting propagated mapping for com/bernardo/dbi/client/screen/CaracterScreen/mouseClicked(DDI)Z from net/minecraft/client/gui/components/events/ContainerEventHandler/mouseClicked(DDI)Z: mouseClicked -> m_6375_
 Conflicting propagated mapping for net/minecraft/world/entity/LivingEntity/lambda$addAdditionalSaveData$3(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/nbt/Tag;)V from net/minecraft/world/entity/player/Player/lambda$addAdditionalSaveData$3(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/nbt/Tag;)V: lambda$addAdditionalSaveData$3 -> m_219754_
 Conflicting propagated mapping for com/bernardo/dbi/block/DragonBlockBase/getRenderShape(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/world/level/block/RenderShape; from net/minecraft/world/level/block/state/BlockBehaviour/getRenderShape(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/world/level/block/RenderShape;: getRenderShape -> m_7514_
 Conflicting propagated mapping for com/bernardo/dbi/block/DragonBlockBase/getShadeBrightness(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F from net/minecraft/world/level/block/state/BlockBehaviour/getShadeBrightness(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F: getShadeBrightness -> m_7749_
@@ -221,11 +225,11 @@ Writing Output: /workspaces/DragonBlockInfinity2/build/reobfJar/output.jar
   assets/dragonblockinfinity/textures/fx/aura/ki_aura_ssj3.png
   assets/dragonblockinfinity/textures/fx/ki_atcck_chargin.jpg
   assets/dragonblockinfinity/textures/gui/
-  assets/dragonblockinfinity/textures/gui/Menu2.png
   assets/dragonblockinfinity/textures/gui/custom_inv_player.png
   assets/dragonblockinfinity/textures/gui/icons_btn.png
   assets/dragonblockinfinity/textures/gui/life.png
   assets/dragonblockinfinity/textures/gui/menu.png
+  assets/dragonblockinfinity/textures/gui/menu2.png
   assets/dragonblockinfinity/textures/hairs/
   assets/dragonblockinfinity/textures/hairs/hair_gohan_overlay.png
   assets/dragonblockinfinity/textures/hairs/hair_goku_overlay.png
@@ -295,12 +299,20 @@ Writing Output: /workspaces/DragonBlockInfinity2/build/reobfJar/output.jar
   com/bernardo/dbi/capability/PlayerRaceCap$Provider.class
   com/bernardo/dbi/capability/PlayerRaceCap.class
   com/bernardo/dbi/capability/PlayerStatusCap.class
+  com/bernardo/dbi/client/
+  com/bernardo/dbi/client/keybind/
+  com/bernardo/dbi/client/keybind/ModKeyBindings$ClientModEvents.class
+  com/bernardo/dbi/client/keybind/ModKeyBindings.class
+  com/bernardo/dbi/client/screen/
+  com/bernardo/dbi/client/screen/CaracterScreen.class
   com/bernardo/dbi/event/
   com/bernardo/dbi/event/BlockInteractionHandler.class
   com/bernardo/dbi/form/
   com/bernardo/dbi/form/BaseForm$FormMastery.class
   com/bernardo/dbi/form/BaseForm.class
   com/bernardo/dbi/form/Form.class
+  com/bernardo/dbi/item/
+  com/bernardo/dbi/item/ItemRegistry.class
   com/bernardo/dbi/mastery/
   com/bernardo/dbi/mastery/MasteryCalculator.class
   com/bernardo/dbi/mastery/MasteryData.class
