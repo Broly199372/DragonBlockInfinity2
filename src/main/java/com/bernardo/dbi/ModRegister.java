@@ -11,6 +11,7 @@ public class ModRegister {
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(ModRegister::commonSetup);
         modEventBus.addListener(ModRegister::registerCapabilities);
+        modEventBus.addListener(com.bernardo.dbi.client.ClientSetup::onRegisterRenderers);
 
         com.bernardo.dbi.block.BlockRegistry.BLOCKS.register(modEventBus);
         com.bernardo.dbi.block.entity.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);

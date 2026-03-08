@@ -1,9 +1,0 @@
-Manifest-Version: 1.0
-Specification-Title: dragonblockifinity
-Specification-Vendor: Broly199372
-Specification-Version: 1
-Implementation-Title: DragonBlockIfinity
-Implementation-Version: 1.0.0
-Implementation-Vendor: Broly199372
-Implementation-Timestamp: 2026-03-06T00:35:31+0000
-
