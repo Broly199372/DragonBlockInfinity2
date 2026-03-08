@@ -1,5 +1,5 @@
 --- BACKUP DO PROJETO DBI ---
-Gerado em: Thu Mar  5 02:39:26 UTC 2026
+Gerado em: Fri Mar  6 20:16:43 UTC 2026
 
 === LISTA DE TEXTURAS (PNG) ===
 src/main/resources/assets/dragonblockinfinity/textures/entity/mobs/dino/dinossauro.png
@@ -10,8 +10,8 @@ src/main/resources/assets/dragonblockinfinity/textures/hairs/hair_goku_overlay.p
 src/main/resources/assets/dragonblockinfinity/textures/models/peso1.png
 src/main/resources/assets/dragonblockinfinity/textures/gui/custom_inv_player.png
 src/main/resources/assets/dragonblockinfinity/textures/gui/life.png
-src/main/resources/assets/dragonblockinfinity/textures/gui/Menu2.png
 src/main/resources/assets/dragonblockinfinity/textures/gui/icons_btn.png
+src/main/resources/assets/dragonblockinfinity/textures/gui/menu2.png
 src/main/resources/assets/dragonblockinfinity/textures/gui/menu.png
 src/main/resources/assets/dragonblockinfinity/textures/particules/hit_clash.png
 src/main/resources/assets/dragonblockinfinity/textures/races/arconsian.png
@@ -73,63 +73,73 @@ package com.bernardo.dbi.client.screen;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.client.Minecraft;
 
 public class CaracterScreen extends Screen {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation("dbi", "textures/gui/menu.png");
-    private static final int TEX_WIDTH = 512;
-    private static final int TEX_HEIGHT = 512;
-    
-    // Medidas reais do seu desenho (510x318)
-    private static final int MENU_W = 510;
-    private static final int MENU_H = 318;
+    // Caminhos das suas texturas do projeto DBI
+    private static final ResourceLocation Menu = new ResourceLocation("dragonblockinfinity", "textures/gui/menu.png");
+    private static final ResourceLocation ICONES = new ResourceLocation("dragonblockinfinity", "textures/gui/icons_btn.png");
 
-    private int guiLeft, guiTop, actualWidth, actualHeight;
+    // Medidas reais que você passou: 510x318 dentro de um arquivo 512x512
+    private final int MENU_W = 510;
+    private final int MENU_H = 318;
+    private final int TEX_SIZE = 512;
+
+    private int guiLeft, guiTop;
 
     public CaracterScreen() {
-        super(Component.translatable("gui.dbi.character_menu"));
+        super(Component.literal("Menu Clássico DBI"));
     }
 
     @Override
     protected void init() {
         super.init();
-        
-        // Mantém a proporção de 510x318 adaptando à altura da tela (90%)
-        float scale = (float) (this.height * 0.9) / MENU_H;
-        this.actualWidth = (int) (MENU_W * scale);
-        this.actualHeight = (int) (MENU_H * scale);
-
-        this.guiLeft = (this.width - this.actualWidth) / 2;
-        this.guiTop = (this.height - this.actualHeight) / 2;
+        // Centraliza o menu na tela do jogador
+        this.guiLeft = (this.width - MENU_W) / 2;
+        this.guiTop = (this.height - MENU_H) / 2;
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        // 1. Desenha o fundo escuro padrão do Minecraft
         this.renderBackground(guiGraphics);
 
-        // Blit com as coordenadas e o tamanho real da sua textura 512x512
-        guiGraphics.blit(BACKGROUND, this.guiLeft, this.guiTop, 0, 0, this.actualWidth, this.actualHeight, TEX_WIDTH, TEX_HEIGHT);
+        // 2. Renderiza o Menu Clássico (510x318)
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        guiGraphics.blit(Menu, this.guiLeft, this.guiTop, 0, 0, MENU_W, MENU_H, TEX_SIZE, TEX_SIZE);
 
-        LivingEntity player = Minecraft.getInstance().player;
-        if (player != null) {
-            int posX = this.guiLeft + (this.actualWidth / 2);
-            int posY = this.guiTop + (this.actualHeight - (int)(30 * (actualHeight / (float)MENU_H)));
-            
-            InventoryScreen.renderEntityInInventoryFollowsMouse(
-                guiGraphics, posX, posY, (int)(40 * (actualHeight / (float)MENU_H)), (float)(posX - mouseX), (float)(posY - mouseY), player
-            );
+        // 3. Exemplo: Renderizar o ícone "X" da sua tabela (Pixel 320, 32)
+        // Vamos colocar ele no canto superior direito do seu menu
+        int fecharX = this.guiLeft + MENU_W - 40;
+        int fecharY = this.guiTop + 10;
+        guiGraphics.blit(ICONES, fecharX, fecharY, 320, 32, 32, 32, TEX_SIZE, TEX_SIZE);
+
+        // 4. Feedback Visual: Se o mouse estiver em cima do "X", desenha um brilho
+        if (mouseX >= fecharX && mouseX <= fecharX + 32 && mouseY >= fecharY && mouseY <= fecharY + 32) {
+            guiGraphics.fill(fecharX, fecharY, fecharX + 32, fecharY + 32, 0x55FFFFFF);
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTicks);
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Lógica de clique para o botão "X"
+        int fecharX = this.guiLeft + MENU_W - 40;
+        int fecharY = this.guiTop + 10;
+
+        if (mouseX >= fecharX && mouseX <= fecharX + 32 && mouseY >= fecharY && mouseY <= fecharY + 32) {
+            this.onClose(); // Faz acontecer: o menu fecha na hora!
+            return true;
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean isPauseScreen() {
-        return false;
+        return false; // O jogo não pausa enquanto você customiza
     }
 }
 
@@ -535,6 +545,11 @@ public class ModRegister {
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(ModRegister::commonSetup);
         modEventBus.addListener(ModRegister::registerCapabilities);
+
+        com.bernardo.dbi.block.BlockRegistry.BLOCKS.register(modEventBus);
+        com.bernardo.dbi.block.entity.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        com.bernardo.dbi.item.ItemRegistry.ITEMS.register(modEventBus);
+        com.bernardo.dbi.item.ItemRegistry.TABS.register(modEventBus);
     }
 
     private static void commonSetup(FMLCommonSetupEvent event) {
@@ -1008,6 +1023,55 @@ package com.bernardo.dbi.mastery;
 public class MasteryCalculator {
     // converte mastery → multiplicador
 }
+--- ARQUIVO: src/main/java/com/bernardo/dbi/item/ItemRegistry.java ---
+
+package com.bernardo.dbi.item;
+
+import com.bernardo.dbi.Dbi;
+import com.bernardo.dbi.block.BlockRegistry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+public class ItemRegistry {
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Dbi.MOD_ID);
+    public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Dbi.MOD_ID);
+
+    public static final RegistryObject<Item> DB1 = ITEMS.register("dragon_block_1_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_1_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB2 = ITEMS.register("dragon_block_2_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_2_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB3 = ITEMS.register("dragon_block_3_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_3_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB4 = ITEMS.register("dragon_block_4_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_4_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB5 = ITEMS.register("dragon_block_5_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_5_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB6 = ITEMS.register("dragon_block_6_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_6_EARTH.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DB7 = ITEMS.register("dragon_block_7_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_7_EARTH.get(), new Item.Properties()));
+    
+    public static final RegistryObject<Item> NAMEK_GRASS = ITEMS.register("namek_grass", () -> new BlockItem(BlockRegistry.NAMEK_GRASS.get(), new Item.Properties()));
+    public static final RegistryObject<Item> NAMEK_DIRTY = ITEMS.register("namek_dirty", () -> new BlockItem(BlockRegistry.NAMEK_DIRTY.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DIRTY_STONE = ITEMS.register("dirty_stone_cobblestone", () -> new BlockItem(BlockRegistry.DIRTY_STONE_COBBLESTONE.get(), new Item.Properties()));
+
+    public static final RegistryObject<CreativeModeTab> DBI_TAB = TABS.register("dbi_tab", () -> CreativeModeTab.builder()
+        .title(Component.literal("Dragon Block Infinity"))
+        .icon(() -> new ItemStack(DB1.get()))
+        .displayItems((parameters, output) -> {
+            output.accept(DB1.get());
+            output.accept(DB2.get());
+            output.accept(DB3.get());
+            output.accept(DB4.get());
+            output.accept(DB5.get());
+            output.accept(DB6.get());
+            output.accept(DB7.get());
+            output.accept(NAMEK_GRASS.get());
+            output.accept(NAMEK_DIRTY.get());
+            output.accept(DIRTY_STONE.get());
+        }).build());
+}
+
 --- ARQUIVO: src/main/java/com/bernardo/dbi/Dbi.java ---
 
 package com.bernardo.dbi;
