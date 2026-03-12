@@ -1,6 +1,1 @@
-{
-  "mod_id": "dragonblockinfinity",
-  "texture_path": "textures/item/blocks/item_dirty_stone.png",
-  "texture_name": "item_dirty_stone",
-  "parent": "dragonblockinfinity:block/dirty_stone"
-}
+{"parent":"dragonblockinfinity:block/dirty_stone"}

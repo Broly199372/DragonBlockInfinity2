@@ -2,5 +2,12 @@
   "key.categories.dbi": "Dragon Block Infinity",
   "key.dbi.open_menu": "Abrir Menu de Personagem",
   "gui.dbi.character_menu": "Menu do Personagem",
-  "gui.dbi.button.close": "Fechar"
+  "gui.dbi.button.close": "Fechar",
+  "block.dragonblockinfinity.block_dragonball1": "Esfera do Dragão ★",
+  "block.dragonblockinfinity.block_dragonball2": "Esfera do Dragão ★★",
+  "block.dragonblockinfinity.block_dragonball3": "Esfera do Dragão ★★★",
+  "block.dragonblockinfinity.block_dragonball4": "Esfera do Dragão ★★★★",
+  "block.dragonblockinfinity.block_dragonball5": "Esfera do Dragão ★★★★★",
+  "block.dragonblockinfinity.block_dragonball6": "Esfera do Dragão ★★★★★★",
+  "block.dragonblockinfinity.block_dragonball7": "Esfera do Dragão ★★★★★★★"
 }
