@@ -1,5 +1,5 @@
 --- BACKUP DO PROJETO DBI ---
-Gerado em: Tue Mar 10 22:27:18 UTC 2026
+Gerado em: Sat Mar 14 21:54:21 UTC 2026
 
 === LISTA DE TEXTURAS (PNG) ===
 src/main/resources/assets/dragonblockinfinity/textures/entity/mobs/dino/dinossauro.png
@@ -72,6 +72,10 @@ src/main/resources/assets/dragonblockinfinity/textures/block/block_dirty_stone_c
 package com.bernardo.dbi.client.screen;
 
 import com.bernardo.dbi.capability.PlayerRaceCap;
+import com.bernardo.dbi.client.screen.widget.BtnLeft;
+import com.bernardo.dbi.client.screen.widget.BtnRight;
+import com.bernardo.dbi.network.ModNetwork;
+import com.bernardo.dbi.network.packet.RaceSelectionPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -80,7 +84,8 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import org.joml.Quaternionf;
+
+import java.util.List;
 
 public class CaracterScreen extends Screen {
 
@@ -92,8 +97,23 @@ public class CaracterScreen extends Screen {
     private static final int IMG_W = 510;
     private static final int IMG_H = 318;
 
+    private static final List<String> RACES = List.of(
+        "dragonblockinfinity:sayajin",
+        "dragonblockinfinity:namekian",
+        "dragonblockinfinity:half_sayajin",
+        "dragonblockinfinity:arconsian",
+        "dragonblockinfinity:humano"
+    );
+
+    private static final List<String> RACE_NAMES = List.of(
+        "Sayajin", "Namekian", "Half-Sayajin", "Arcosiano", "Humano"
+    );
+
     private int guiLeft, guiTop, menuW, menuH;
-    private String selectedRace = "";
+    private int raceIndex = 0;
+
+    private BtnLeft  btnLeft;
+    private BtnRight btnRight;
 
     public CaracterScreen() {
         super(Component.literal("Criação de Personagem"));
@@ -109,14 +129,42 @@ public class CaracterScreen extends Screen {
         );
         menuW = (int)(IMG_W * ratio);
         menuH = (int)(IMG_H * ratio);
-
         guiLeft = (this.width  - menuW) / 2;
         guiTop  = (this.height - menuH) / 2;
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
-            player.getCapability(PlayerRaceCap.RACE_CAP).ifPresent(cap ->
-                    this.selectedRace = cap.getRace());
+            player.getCapability(PlayerRaceCap.RACE_CAP).ifPresent(cap -> {
+                int idx = RACES.indexOf(cap.getRace());
+                if (idx >= 0) this.raceIndex = idx;
+            });
+        }
+
+        int panelCenterX = guiLeft + (int)(menuW * 0.16f);
+        int btnY = guiTop + (int)(menuH * 0.08f);
+
+        btnLeft  = new BtnLeft (panelCenterX - 30, btnY, () -> cycleRace(-1));
+        btnRight = new BtnRight(panelCenterX + 14, btnY, () -> cycleRace(+1));
+
+        this.addRenderableWidget(btnLeft);
+        this.addRenderableWidget(btnRight);
+    }
+
+    private void cycleRace(int dir) {
+        raceIndex = (raceIndex + dir + RACES.size()) % RACES.size();
+        String selectedRace = RACES.get(raceIndex);
+
+        Player player = Minecraft.getInstance().player;
+        if (player != null) {
+            player.getCapability(PlayerRaceCap.RACE_CAP).ifPresent(cap -> {
+                cap.setAll(selectedRace, RACE_NAMES.get(raceIndex),
+                    cap.getFormIdx(), cap.getHairStyle(), cap.getAgeIdx(),
+                    cap.getBodyTypeIdx(), cap.getNoseIdx(), cap.getMouthIdx(),
+                    cap.getEyeIdx(), cap.getBodyColor(), cap.getHairColor(), cap.getEyeColor());
+            });
+            ModNetwork.sendToServer(new RaceSelectionPacket(
+                selectedRace, 0, 0, 0, 0, 0, 0, 0,
+                0xFFD2956E, 0xFF1A1A1A, 0xFF1A1A1A));
         }
     }
 
@@ -127,49 +175,37 @@ public class CaracterScreen extends Screen {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         g.blit(MENU, guiLeft, guiTop, menuW, menuH, 0, 0, IMG_W, IMG_H, TEX_W, TEX_H);
 
-        renderPlayerPanel(g, mouseX, mouseY);
+        // Player com renderEntityInInventoryFollowsMouse
+        Player player = Minecraft.getInstance().player;
+        if (player != null) {
+            int panelCenterX = guiLeft + (int)(menuW * 0.16f);
+            int panelCenterY = guiTop  + (int)(menuH * 0.60f);
+            int scale        = (int)(menuH * 0.22f);
 
-        g.drawCenteredString(this.font,
-                Component.literal("✦ Criação de Personagem ✦"),
-                guiLeft + menuW / 2, guiTop + 8, 0xFFD700);
-
-        if (!selectedRace.isEmpty()) {
-            String raceName = selectedRace
-                    .replace("dragonblockinfinity:", "")
-                    .replace("_", " ");
-            raceName = raceName.substring(0, 1).toUpperCase() + raceName.substring(1);
-            g.drawCenteredString(this.font, Component.literal(raceName),
-                    guiLeft + (int)(menuW * 0.16f), guiTop + menuH - 20, 0xFFFFFF);
+            InventoryScreen.renderEntityInInventoryFollowsMouse(
+                g, panelCenterX, panelCenterY, scale,
+                mouseX, mouseY,
+                (net.minecraft.world.entity.LivingEntity) player);
         }
 
-        super.render(g, mouseX, mouseY, partialTick);
-    }
-
-    private void renderPlayerPanel(GuiGraphics g, int mouseX, int mouseY) {
-        Player player = Minecraft.getInstance().player;
-        if (player == null) return;
+        g.drawCenteredString(this.font,
+            Component.literal("✦ Criação de Personagem ✦"),
+            guiLeft + menuW / 2, guiTop + 8, 0xFFD700);
 
         int panelCenterX = guiLeft + (int)(menuW * 0.16f);
-        int panelCenterY = guiTop  + (int)(menuH * 0.68f);
-        int scale        = (int)(menuH * 0.22f);
+        int nameY = guiTop + (int)(menuH * 0.08f) + 4;
+        g.drawCenteredString(this.font,
+            Component.literal(RACE_NAMES.get(raceIndex)),
+            panelCenterX, nameY, 0xFFD700);
 
-        float dx = (float)(panelCenterX - mouseX);
-        float dy = (float)(guiTop + menuH * 0.25f - mouseY);
-
-        Quaternionf rotY = new Quaternionf()
-                .rotateZ((float) Math.PI)
-                .rotateY((float) Math.atan2(dx, 120f));
-        Quaternionf rotX = new Quaternionf()
-                .rotateX((float) Math.atan2(dy, 120f));
-
-        InventoryScreen.renderEntityInInventory(g, panelCenterX, panelCenterY, scale, rotY, rotX, player);
+        super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean isPauseScreen() { return false; }
 }
 
---- ARQUIVO: src/main/java/com/bernardo/dbi/client/screen/widget/DBIIconButton.java ---
+--- ARQUIVO: src/main/java/com/bernardo/dbi/client/screen/widget/BtnLeft.java ---
 
 package com.bernardo.dbi.client.screen.widget;
 
@@ -180,223 +216,130 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * DBIIconButton — Botão de ícone do mod Dragon Block Infinity
- *
- * Atlas: textures/gui/icons_btn.png (512x512)
- *
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │  MAPA DO ATLAS — ícones 20×15px cada                               │
- * ├────────┬────────────────────────────────────────────────────────────┤
- * │ V=0    │ Estado ACTIVE/CLICK  (ícones animados / diagonais)        │
- * │ V=15   │ Estado OVERLAY       (pontos/detalhes)                    │
- * │ V=30   │ Estado NORMAL        (fundo amarelo)                      │
- * │ V=45   │ Estado HOVER         (fundo azul)                         │
- * │ V=60   │ Estado PRESSED       (fundo creme/branco)                 │
- * │ V=75   │ Estado PRESSED+HOVER (creme + borda azul)                 │
- * ├────────┼────────────────────────────────────────────────────────────┤
- * │ ÍCONE  │ U offset (cada um 20px de largura)                        │
- * │ LEFT_BIG     │ U=0   — < (seta esquerda grande)                   │
- * │ RIGHT_BIG    │ U=20  — > (seta direita grande)                    │
- * │ LEFT         │ U=40  — < (seta esquerda pequena)                  │
- * │ RIGHT        │ U=60  — > (seta direita pequena)                   │
- * │ UP           │ U=80  — ^ (seta cima)                              │
- * │ DOWN         │ U=100 — v (seta baixo)                             │
- * │ REWIND       │ U=120 — << (voltar)                                │
- * │ FAST_FWD     │ U=140 — >> (avançar)                               │
- * │ SKIP_BACK    │ U=160 — K / |< (ir ao início)                      │
- * │ SKIP_FWD     │ U=180 — H / >| (ir ao fim)                         │
- * │ CHECK_BIG    │ U=200 — ✓ / X (grande, amarelo)                    │
- * │ DIAMOND      │ U=220 — ◆ (losango grande, amarelo)                │
- * │ CLOSE        │ U=240 — X (fechar)                                 │
- * │ CIRCLE       │ U=260 — O (círculo)                                │
- * │ BAR_1        │ U=280 — | (uma barra / stop)                       │
- * │ BAR_2        │ U=300 — || (duas barras / pause)                   │
- * │ CIRCLE_SM    │ U=320 — O (círculo pequeno)                        │
- * │ BAR_1_SM     │ U=340 — | (barra pequena)                          │
- * │ BAR_2_SM     │ U=360 — || (barras pequenas)                       │
- * ├────────────────────────────────────────────────────────────────────┤
- * │  BANDA SECUNDÁRIA — ícones especiais 20×20px (V=92~151)           │
- * │  V=92   DISABLED  │  V=112  NORMAL  │  V=132  PRESSED            │
- * │  U=0  → PLUS  (+) amarelo                                         │
- * │  U=22 → MINUS (–) vermelho                                        │
- * └────────────────────────────────────────────────────────────────────┘
- */
-public class DBIIconButton extends AbstractWidget {
+public class BtnLeft extends AbstractWidget {
 
-    // ── Textura ──────────────────────────────────────────────────────────────
-    private static final ResourceLocation ICONS = new ResourceLocation(
+    private static final ResourceLocation TEX = new ResourceLocation(
             "dragonblockinfinity", "textures/gui/icons_btn.png");
-    private static final int TEX_W = 512;
-    private static final int TEX_H = 512;
 
-    // ── Dimensões dos ícones principais ──────────────────────────────────────
-    private static final int ICON_W = 20;
-    private static final int ICON_H = 15;
+    private static final int U        = 61;
+    private static final int V_NORMAL = 30;
+    private static final int V_PRESS  = 50;
+    private static final int W        = 20;
+    private static final int H        = 29;
+    private static final int TEX_W    = 512;
+    private static final int TEX_H    = 512;
 
-    // ── Estados V no atlas principal ─────────────────────────────────────────
-    private static final int V_ACTIVE  =  0;
-    private static final int V_NORMAL  = 30;
-    private static final int V_HOVER   = 45;
-    private static final int V_PRESSED = 60;
-
-    // ── Dimensões dos ícones secundários (Plus/Minus) ─────────────────────────
-    private static final int ICON_W_SEC = 20;
-    private static final int ICON_H_SEC = 20;
-    private static final int V_SEC_DISABLED = 92;
-    private static final int V_SEC_NORMAL   = 112;
-    private static final int V_SEC_PRESSED  = 132;
-
-    // ── Campos do botão ───────────────────────────────────────────────────────
-    private final Icon    icon;
-    private final OnPress onPress;
-    private boolean       pressed = false; // estado de toggle, se necessário
-
-    // =========================================================================
-    //  Enum de ícones — U offset no atlas
-    // =========================================================================
-    public enum Icon {
-        // Ícones principais (20×15px) ─────────────────────────────────────────
-        LEFT_BIG   (  0, false),  // < grande
-        RIGHT_BIG  ( 20, false),  // > grande
-        LEFT       ( 40, false),  // < pequeno
-        RIGHT      ( 60, false),  // > pequeno
-        UP         ( 80, false),  // ^
-        DOWN       (100, false),  // v
-        REWIND     (120, false),  // <<
-        FAST_FWD   (140, false),  // >>
-        SKIP_BACK  (160, false),  // |<
-        SKIP_FWD   (180, false),  // >|
-        CHECK_BIG  (200, false),  // ✓ / X grande amarelo
-        DIAMOND    (220, false),  // ◆ losango grande amarelo
-        CLOSE      (240, false),  // X fechar
-        CIRCLE     (260, false),  // O círculo
-        BAR_1      (280, false),  // | stop
-        BAR_2      (300, false),  // || pause
-        CIRCLE_SM  (320, false),  // O pequeno
-        BAR_1_SM   (340, false),  // | pequeno
-        BAR_2_SM   (360, false),  // || pequeno
-
-        // Ícones secundários (20×20px) ────────────────────────────────────────
-        PLUS       (  0, true),   // + amarelo
-        MINUS      ( 22, true);   // – vermelho
-
-        final int  u;
-        final boolean secondary;
-        Icon(int u, boolean secondary) {
-            this.u         = u;
-            this.secondary = secondary;
-        }
-    }
-
-    // =========================================================================
-    //  Interface de clique
-    // =========================================================================
     @FunctionalInterface
-    public interface OnPress {
-        void onPress(DBIIconButton button);
-    }
+    public interface OnPress { void onPress(); }
+    private final OnPress onPress;
+    private boolean pressing = false;
 
-    // =========================================================================
-    //  Construtores
-    // =========================================================================
-    public DBIIconButton(int x, int y, Icon icon, OnPress onPress) {
-        super(x, y,
-              icon.secondary ? ICON_W_SEC : ICON_W,
-              icon.secondary ? ICON_H_SEC : ICON_H,
-              Component.empty());
-        this.icon    = icon;
+    public BtnLeft(int x, int y, OnPress onPress) {
+        super(x, y, W, H, Component.empty());
         this.onPress = onPress;
     }
 
-    // Construtor com tooltip de texto (narração / acessibilidade)
-    public DBIIconButton(int x, int y, Icon icon, String tooltip, OnPress onPress) {
-        super(x, y,
-              icon.secondary ? ICON_W_SEC : ICON_W,
-              icon.secondary ? ICON_H_SEC : ICON_H,
-              Component.literal(tooltip));
-        this.icon    = icon;
-        this.onPress = onPress;
-    }
-
-    // =========================================================================
-    //  Toggle de estado "pressionado" (para botões de seleção/on-off)
-    // =========================================================================
-    public void setPressed(boolean pressed) { this.pressed = pressed; }
-    public boolean isPressed() { return this.pressed; }
-
-    // =========================================================================
-    //  Renderização
-    // =========================================================================
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!this.visible) return;
-
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1f, 1f, 1f, this.active ? 1f : 0.45f);
-
-        if (this.icon.secondary) {
-            renderSecondary(g);
-        } else {
-            renderMain(g);
-        }
-
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        int v = pressing ? V_PRESS : V_NORMAL;
+        g.blit(TEX, this.getX(), this.getY(), U, v, W, H, TEX_W, TEX_H);
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
     }
 
-    /** Renderiza ícone da banda principal (20×15) */
-    private void renderMain(GuiGraphics g) {
-        int v;
-        if (this.pressed) {
-            v = this.isHovered ? V_PRESSED + 15 : V_PRESSED; // V=75 ou V=60
-        } else if (this.isHovered) {
-            v = V_HOVER;   // V=45 — fundo azul
-        } else {
-            v = V_NORMAL;  // V=30 — fundo amarelo
-        }
-
-        g.blit(ICONS,
-               this.getX(), this.getY(),
-               this.icon.u, v,
-               ICON_W, ICON_H,
-               TEX_W, TEX_H);
-    }
-
-    /** Renderiza ícone da banda secundária Plus/Minus (20×20) */
-    private void renderSecondary(GuiGraphics g) {
-        int v;
-        if (!this.active) {
-            v = V_SEC_DISABLED;   // V=92  — escuro
-        } else if (this.isHovered || this.pressed) {
-            v = V_SEC_PRESSED;    // V=132 — pressionado/hover
-        } else {
-            v = V_SEC_NORMAL;     // V=112 — normal
-        }
-
-        g.blit(ICONS,
-               this.getX(), this.getY(),
-               this.icon.u, v,
-               ICON_W_SEC, ICON_H_SEC,
-               TEX_W, TEX_H);
-    }
-
-    // =========================================================================
-    //  Clique
-    // =========================================================================
     @Override
-    public void onClick(double mouseX, double mouseY) {
-        if (this.active) {
-            this.onPress.onPress(this);
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (this.isHovered() && button == 0) {
+            pressing = true;
+            this.onPress.onPress();
+            return true;
         }
+        return false;
     }
 
-    // =========================================================================
-    //  Narração (acessibilidade)
-    // =========================================================================
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput output) {
-        this.defaultButtonNarrationText(output);
+    public boolean mouseReleased(double mx, double my, int button) {
+        pressing = false;
+        return super.mouseReleased(mx, my, button);
+    }
+
+    @Override
+    public void onClick(double mx, double my) {}
+
+    @Override
+    protected void updateWidgetNarration(NarrationElementOutput o) {
+        this.defaultButtonNarrationText(o);
+    }
+}
+
+--- ARQUIVO: src/main/java/com/bernardo/dbi/client/screen/widget/BtnRight.java ---
+
+package com.bernardo.dbi.client.screen.widget;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+
+public class BtnRight extends AbstractWidget {
+
+    private static final ResourceLocation TEX = new ResourceLocation(
+            "dragonblockinfinity", "textures/gui/icons_btn.png");
+
+    private static final int U        = 81;
+    private static final int V_NORMAL = 30;
+    private static final int V_PRESS  = 50;
+    private static final int W        = 20;
+    private static final int H        = 29;
+    private static final int TEX_W    = 512;
+    private static final int TEX_H    = 512;
+
+    @FunctionalInterface
+    public interface OnPress { void onPress(); }
+    private final OnPress onPress;
+    private boolean pressing = false;
+
+    public BtnRight(int x, int y, OnPress onPress) {
+        super(x, y, W, H, Component.empty());
+        this.onPress = onPress;
+    }
+
+    @Override
+    public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        int v = pressing ? V_PRESS : V_NORMAL;
+        g.blit(TEX, this.getX(), this.getY(), U, v, W, H, TEX_W, TEX_H);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (this.isHovered() && button == 0) {
+            pressing = true;
+            this.onPress.onPress();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        pressing = false;
+        return super.mouseReleased(mx, my, button);
+    }
+
+    @Override
+    public void onClick(double mx, double my) {}
+
+    @Override
+    protected void updateWidgetNarration(NarrationElementOutput o) {
+        this.defaultButtonNarrationText(o);
     }
 }
 
@@ -528,81 +471,157 @@ public class ClientSetup {
     }
 }
 
+--- ARQUIVO: src/main/java/com/bernardo/dbi/world/ShenronSummon.java ---
+
+package com.bernardo.dbi.world;
+
+import com.bernardo.dbi.blocks.BlockDragonBall;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+@Mod.EventBusSubscriber
+public class ShenronSummon {
+
+    // Padrão relativo ao centro:
+    // . X X
+    // X C X
+    // . X X
+    private static final int[][] PATTERN = {
+        { 0,  0},  // centro (C)
+        {-1,  0},  // esquerda
+        { 1,  0},  // direita
+        { 0, -1},  // frente
+        { 0,  1},  // atrás
+        { 1, -1},  // frente-direita
+        { 1,  1},  // atrás-direita
+    };
+
+    @SubscribeEvent
+    public static void onRightClick(PlayerInteractEvent.RightClickBlock event) {
+        Level level = event.getLevel();
+        if (level.isClientSide()) return;
+
+        BlockPos center = event.getPos();
+        BlockState centerState = level.getBlockState(center);
+
+        // Só ativa se clicar em uma esfera do dragão
+        if (!(centerState.getBlock() instanceof BlockDragonBall)) return;
+        if (event.getHand() != InteractionHand.MAIN_HAND) return;
+
+        // Verifica se todas as 7 posições do padrão têm esferas
+        for (int[] offset : PATTERN) {
+            BlockPos check = center.offset(offset[0], 0, offset[1]);
+            if (!(level.getBlockState(check).getBlock() instanceof BlockDragonBall)) {
+                return; // padrão incompleto
+            }
+        }
+
+        // Padrão completo! Remove todas as esferas
+        for (int[] offset : PATTERN) {
+            BlockPos pos = center.offset(offset[0], 0, offset[1]);
+            level.removeBlock(pos, false);
+        }
+
+        // Spawna o Shenlong no centro (você conecta depois)
+        spawnShenron((ServerLevel) level, center, event.getEntity());
+
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+
+        // Reagenda o spawn das esferas depois de 5 minutos (6000 ticks)
+        DragonBallSpawner.scheduleRespawn((ServerLevel) level, 6000);
+    }
+
+    private static void spawnShenron(ServerLevel level, BlockPos pos, Player player) {
+        // TODO: spawnar entidade Shenlong aqui quando estiver pronto
+        // level.addFreshEntity(new EntityShenron(level, pos));
+        player.sendSystemMessage(
+            net.minecraft.network.chat.Component.literal("§6✦ As Esferas do Dragão foram reunidas! Shenlong está chegando... ✦")
+        );
+    }
+}
+
 --- ARQUIVO: src/main/java/com/bernardo/dbi/world/DragonBallSpawner.java ---
 
 package com.bernardo.dbi.world;
 
-import com.bernardo.dbi.blocks.*;
-import com.bernardo.dbi.init.ModBlocks;
+import com.bernardo.dbi.blocks.BlockRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraftforge.event.world.ChunkEvent;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.nio.file.*;
+import java.util.List;
 import java.util.Random;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.RegistryObject;
 
 @Mod.EventBusSubscriber
 public class DragonBallSpawner {
 
-    private static final Block[] DRAGON_BALLS = {
-        ModBlocks.DRAGON_BALL_1.get(),
-        ModBlocks.DRAGON_BALL_2.get(),
-        ModBlocks.DRAGON_BALL_3.get(),
-        ModBlocks.DRAGON_BALL_4.get(),
-        ModBlocks.DRAGON_BALL_5.get(),
-        ModBlocks.DRAGON_BALL_6.get(),
-        ModBlocks.DRAGON_BALL_7.get()
-    };
+    private static final String FILE_NAME = "dragonballs_spawned.dat";
 
-    // Máximo de 7 esferas no mundo (1 de cada)
-    private static final boolean[] spawned = new boolean[7];
+    private static final List<RegistryObject<Block>> BALLS = List.of(
+        BlockRegistry.DRAGON_BALL_1,
+        BlockRegistry.DRAGON_BALL_2,
+        BlockRegistry.DRAGON_BALL_3,
+        BlockRegistry.DRAGON_BALL_4,
+        BlockRegistry.DRAGON_BALL_5,
+        BlockRegistry.DRAGON_BALL_6,
+        BlockRegistry.DRAGON_BALL_7
+    );
 
     @SubscribeEvent
-    public static void onChunkLoad(ChunkEvent.Load event) {
-        if (!(event.getWorld() instanceof ServerLevel level)) return;
+    public static void onWorldLoad(LevelEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (!level.dimension().equals(Level.OVERWORLD)) return;
 
-        // Só overworld
-        if (!level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) return;
+        Path saveDir  = level.getServer().getWorldPath(LevelResource.ROOT).resolve("data");
+        Path flagFile = saveDir.resolve(FILE_NAME);
 
-        Random rand = new Random();
+        if (Files.exists(flagFile)) return;
 
-        // Chance baixa por chunk para não spawnar demais
-        if (rand.nextInt(500) != 0) return;
+        level.getServer().execute(() -> {
+            try {
+                Random rand = new Random();
+                for (RegistryObject<Block> ball : BALLS) {
+                    int x = rand.nextInt(2000) - 1000;
+                    int z = rand.nextInt(2000) - 1000;
+                    int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) + 1;
+                    level.setBlock(new BlockPos(x, y, z),
+                        ball.get().defaultBlockState(), 3);
+                }
+                Files.createDirectories(saveDir);
+                Files.writeString(flagFile, "spawned");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
 
-        LevelChunk chunk = (LevelChunk) event.getChunk();
-        int chunkX = chunk.getPos().getMinBlockX();
-        int chunkZ = chunk.getPos().getMinBlockZ();
+    public static void scheduleRespawn(ServerLevel level, int ticks) {
+        resetFlag(level);
+    }
 
-        // Escolhe qual esfera spawnar (que ainda não foi spawnada)
-        for (int i = 0; i < 7; i++) {
-            if (spawned[i]) continue;
-
-            // Posição aleatória dentro do chunk
-            int x = chunkX + rand.nextInt(16);
-            int z = chunkZ + rand.nextInt(16);
-
-            // Pega a altura do solo da chunk e subtrai 40
-            int surfaceY = level.getHeight(
-                net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
-                x, z
-            );
-            int spawnY = surfaceY - 40 - rand.nextInt(20);
-
-            // Garante que está dentro dos limites do mundo
-            if (spawnY < level.getMinBuildHeight() + 5) continue;
-
-            BlockPos pos = new BlockPos(x, spawnY, z);
-
-            // Só spawna em bloco de ar
-            if (!level.getBlockState(pos).isAir()) continue;
-
-            level.setBlock(pos, DRAGON_BALLS[i].defaultBlockState(), 3);
-            spawned[i] = true;
-            break;
-        }
+    public static void resetFlag(ServerLevel level) {
+        Path flagFile = level.getServer()
+            .getWorldPath(LevelResource.ROOT)
+            .resolve("data").resolve(FILE_NAME);
+        try { Files.deleteIfExists(flagFile); } catch (Exception ignored) {}
     }
 }
 
@@ -951,34 +970,23 @@ public final class IdentifierUtil {
 
 package com.bernardo.dbi;
 
-import com.bernardo.dbi.capability.PlayerRaceCap;
 import com.bernardo.dbi.network.ModNetwork;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.registries.RegisterEvent;
 
 public class ModRegister {
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(ModRegister::commonSetup);
-        modEventBus.addListener(ModRegister::registerCapabilities);
         modEventBus.addListener(com.bernardo.dbi.client.ClientSetup::onRegisterRenderers);
 
-        com.bernardo.dbi.block.BlockRegistry.BLOCKS.register(modEventBus);
-        com.bernardo.dbi.block.entity.ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        com.bernardo.dbi.blocks.BlockRegistry.BLOCKS.register(modEventBus);
         com.bernardo.dbi.item.ItemRegistry.ITEMS.register(modEventBus);
         com.bernardo.dbi.item.ItemRegistry.TABS.register(modEventBus);
     }
 
     private static void commonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(() -> {
-            ModNetwork.register();
-        });
-    }
-
-    private static void registerCapabilities(RegisterEvent event) {
-        // Capabilities são registradas via RegisterCapabilitiesEvent no Forge 1.20.1
-        // Isso é feito automaticamente pelo CapabilityToken no PlayerRaceCap
+        event.enqueueWork(ModNetwork::register);
     }
 }
 
@@ -1201,7 +1209,7 @@ public class RaceData implements Identifiable {
 package com.bernardo.dbi.event;
 
 import com.bernardo.dbi.Dbi;
-import com.bernardo.dbi.block.DragonBlockBase;
+import com.bernardo.dbi.blocks.BlockDragonBall;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.PickaxeItem;
@@ -1216,77 +1224,56 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
-import java.util.List;
-
 @EventBusSubscriber(modid = Dbi.MOD_ID, bus = EventBusSubscriber.Bus.FORGE)
 public class BlockInteractionHandler {
 
-    // Multipliers por material (madeira, pedra, ferro, diamante, netherite)
     private static float materialMultiplier(int level) {
         switch (level) {
-            case 0: return 0.6f; // wood / gold
-            case 1: return 1.0f; // stone
-            case 2: return 1.4f; // iron
-            case 3: return 1.8f; // diamond
-            case 4: return 2.2f; // netherite
+            case 0: return 0.6f;
+            case 1: return 1.0f;
+            case 2: return 1.4f;
+            case 3: return 1.8f;
+            case 4: return 2.2f;
             default: return 1.0f;
         }
     }
 
     private static float toolTypeMultiplier(Item item) {
         if (item instanceof PickaxeItem) return 1.0f;
-        if (item instanceof AxeItem) return 0.8f;
-        if (item instanceof ShovelItem) return 0.6f;
-        return 0.35f; // mão ou item qualquer
+        if (item instanceof AxeItem)     return 0.8f;
+        if (item instanceof ShovelItem)  return 0.6f;
+        return 0.35f;
     }
 
-    /**
-     * Ajusta a velocidade de quebra conforme ferramenta e material.
-     */
     @SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onBreakSpeed(PlayerEvent.BreakSpeed event) {
         Player player = event.getEntity();
         if (player == null) return;
 
-        // event provides the block state directly, no need to query world
         BlockState state = event.getState();
         Block block = state.getBlock();
-        if (!(block instanceof DragonBlockBase)) return;
+        if (!(block instanceof BlockDragonBall)) return;
 
         Item held = player.getMainHandItem().getItem();
-
         float toolMult = toolTypeMultiplier(held);
         int tierLevel = 1;
         if (held instanceof TieredItem) {
-            try {
-                tierLevel = ((TieredItem) held).getTier().getLevel();
-            } catch (Exception ignored) {}
+            try { tierLevel = ((TieredItem) held).getTier().getLevel(); }
+            catch (Exception ignored) {}
         }
-        float matMult = materialMultiplier(tierLevel);
-
-        // Ajuste simples: nova velocidade = velocidade atual * toolMult * matMult
-        float newSpeed = event.getNewSpeed() * toolMult * matMult;
-        event.setNewSpeed(newSpeed);
+        event.setNewSpeed(event.getNewSpeed() * toolMult * materialMultiplier(tierLevel));
     }
 
-    /**
-     * Controla os drops: se quebrado na mão e o bloco não permite, remove drops.
-     */
     @SubscribeEvent
-    public static void onBlockHarvestDrops(BlockEvent.BreakEvent event) {
+    public static void onBlockBreak(BlockEvent.BreakEvent event) {
         Player player = event.getPlayer();
         if (player == null) return;
 
-        BlockState state = event.getState(); // already correct
-        Block block = state.getBlock();
-        if (!(block instanceof DragonBlockBase)) return;
+        Block block = event.getState().getBlock();
+        if (!(block instanceof BlockDragonBall)) return;
 
-        DragonBlockBase db = (DragonBlockBase) block;
-
-        boolean hand = player.getMainHandItem().isEmpty();
-        if (hand && !db.allowHandDrops()) {
-            // Cancelar drops removendo as entidades de item do mundo
-            // Simplesmente cancelar o evento evita drops padrão
+        // Quebrar com mão vazia não dropa (deve usar clique direito)
+        if (player.getMainHandItem().isEmpty()) {
             event.setCanceled(true);
         }
     }
@@ -1446,7 +1433,7 @@ public class MasteryCalculator {
 package com.bernardo.dbi.item;
 
 import com.bernardo.dbi.Dbi;
-import com.bernardo.dbi.block.BlockRegistry;
+import com.bernardo.dbi.blocks.BlockRegistry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -1461,32 +1448,33 @@ public class ItemRegistry {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, Dbi.MOD_ID);
     public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Dbi.MOD_ID);
 
-    public static final RegistryObject<Item> DB1 = ITEMS.register("dragon_block_1_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_1_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB2 = ITEMS.register("dragon_block_2_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_2_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB3 = ITEMS.register("dragon_block_3_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_3_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB4 = ITEMS.register("dragon_block_4_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_4_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB5 = ITEMS.register("dragon_block_5_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_5_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB6 = ITEMS.register("dragon_block_6_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_6_EARTH.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DB7 = ITEMS.register("dragon_block_7_earth", () -> new BlockItem(BlockRegistry.DRAGON_BLOCK_7_EARTH.get(), new Item.Properties()));
-    
-    public static final RegistryObject<Item> NAMEK_GRASS = ITEMS.register("namek_grass", () -> new BlockItem(BlockRegistry.NAMEK_GRASS.get(), new Item.Properties()));
-    public static final RegistryObject<Item> NAMEK_DIRTY = ITEMS.register("namek_dirty", () -> new BlockItem(BlockRegistry.NAMEK_DIRTY.get(), new Item.Properties()));
-    public static final RegistryObject<Item> DIRTY_STONE = ITEMS.register("dirty_stone_cobblestone", () -> new BlockItem(BlockRegistry.DIRTY_STONE_COBBLESTONE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_1           = ITEMS.register("block_dragonball1",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_1.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_2           = ITEMS.register("block_dragonball2",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_2.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_3           = ITEMS.register("block_dragonball3",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_3.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_4           = ITEMS.register("block_dragonball4",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_4.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_5           = ITEMS.register("block_dragonball5",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_5.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_6           = ITEMS.register("block_dragonball6",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_6.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> DRAGON_BALL_7           = ITEMS.register("block_dragonball7",        () -> new BlockItem(BlockRegistry.DRAGON_BALL_7.get(),           new Item.Properties()));
+    public static final RegistryObject<Item> NAMEK_GRASS             = ITEMS.register("namek_grass",              () -> new BlockItem(BlockRegistry.NAMEK_GRASS.get(),             new Item.Properties()));
+    public static final RegistryObject<Item> NAMEK_DIRTY             = ITEMS.register("namek_dirty",              () -> new BlockItem(BlockRegistry.NAMEK_DIRTY.get(),             new Item.Properties()));
+    public static final RegistryObject<Item> DIRTY_STONE             = ITEMS.register("dirty_stone",              () -> new BlockItem(BlockRegistry.DIRTY_STONE.get(),             new Item.Properties()));
+    public static final RegistryObject<Item> DIRTY_STONE_COBBLESTONE = ITEMS.register("dirty_stone_cobblestone",  () -> new BlockItem(BlockRegistry.DIRTY_STONE_COBBLESTONE.get(), new Item.Properties()));
 
     public static final RegistryObject<CreativeModeTab> DBI_TAB = TABS.register("dbi_tab", () -> CreativeModeTab.builder()
         .title(Component.literal("Dragon Block Infinity"))
-        .icon(() -> new ItemStack(DB1.get()))
+        .icon(() -> new ItemStack(DRAGON_BALL_1.get()))
         .displayItems((parameters, output) -> {
-            output.accept(DB1.get());
-            output.accept(DB2.get());
-            output.accept(DB3.get());
-            output.accept(DB4.get());
-            output.accept(DB5.get());
-            output.accept(DB6.get());
-            output.accept(DB7.get());
+            output.accept(DRAGON_BALL_1.get());
+            output.accept(DRAGON_BALL_2.get());
+            output.accept(DRAGON_BALL_3.get());
+            output.accept(DRAGON_BALL_4.get());
+            output.accept(DRAGON_BALL_5.get());
+            output.accept(DRAGON_BALL_6.get());
+            output.accept(DRAGON_BALL_7.get());
             output.accept(NAMEK_GRASS.get());
             output.accept(NAMEK_DIRTY.get());
             output.accept(DIRTY_STONE.get());
+            output.accept(DIRTY_STONE_COBBLESTONE.get());
         }).build());
 }
 
@@ -1563,11 +1551,11 @@ public abstract class BlockDragonBall extends Block {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall3 extends BlockDragonBall {
     public BlockDragonBall3() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(2.0f, 2.0f)
             .sound(SoundType.GLASS)
             .noOcclusion()
@@ -1575,16 +1563,59 @@ public class BlockDragonBall3 extends BlockDragonBall {
     }
 }
 
+--- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockDirtyStoneCobblestone.java ---
+
+package com.bernardo.dbi.blocks;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+
+public class BlockDirtyStoneCobblestone extends Block {
+    public BlockDirtyStoneCobblestone() {
+        super(BlockBehaviour.Properties.of()
+            .strength(2.0f, 6.0f)
+            .sound(SoundType.STONE)
+            .requiresCorrectToolForDrops());
+    }
+}
+
+--- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockRegistry.java ---
+
+package com.bernardo.dbi.blocks;
+
+import com.bernardo.dbi.Dbi;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+public class BlockRegistry {
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, Dbi.MOD_ID);
+
+    public static final RegistryObject<Block> DRAGON_BALL_1          = BLOCKS.register("block_dragonball1",         BlockDragonBall1::new);
+    public static final RegistryObject<Block> DRAGON_BALL_2          = BLOCKS.register("block_dragonball2",         BlockDragonBall2::new);
+    public static final RegistryObject<Block> DRAGON_BALL_3          = BLOCKS.register("block_dragonball3",         BlockDragonBall3::new);
+    public static final RegistryObject<Block> DRAGON_BALL_4          = BLOCKS.register("block_dragonball4",         BlockDragonBall4::new);
+    public static final RegistryObject<Block> DRAGON_BALL_5          = BLOCKS.register("block_dragonball5",         BlockDragonBall5::new);
+    public static final RegistryObject<Block> DRAGON_BALL_6          = BLOCKS.register("block_dragonball6",         BlockDragonBall6::new);
+    public static final RegistryObject<Block> DRAGON_BALL_7          = BLOCKS.register("block_dragonball7",         BlockDragonBall7::new);
+    public static final RegistryObject<Block> NAMEK_GRASS            = BLOCKS.register("namek_grass",               BlockNamekGrass::new);
+    public static final RegistryObject<Block> NAMEK_DIRTY            = BLOCKS.register("namek_dirty",               BlockNamekDirty::new);
+    public static final RegistryObject<Block> DIRTY_STONE            = BLOCKS.register("dirty_stone",               BlockDirtyStone::new);
+    public static final RegistryObject<Block> DIRTY_STONE_COBBLESTONE = BLOCKS.register("dirty_stone_cobblestone",  BlockDirtyStoneCobblestone::new);
+}
+
 --- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockDragonBall1.java ---
 
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall1 extends BlockDragonBall {
     public BlockDragonBall1() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(0.5f, 0.5f)
             .sound(SoundType.GLASS)
             .noOcclusion()
@@ -1597,11 +1628,11 @@ public class BlockDragonBall1 extends BlockDragonBall {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall5 extends BlockDragonBall {
     public BlockDragonBall5() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(2.5f, 2.5f)
             .sound(SoundType.GLASS)
             .noOcclusion()
@@ -1614,14 +1645,31 @@ public class BlockDragonBall5 extends BlockDragonBall {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall7 extends BlockDragonBall {
     public BlockDragonBall7() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(4.0f, 4.0f)
             .sound(SoundType.GLASS)
             .noOcclusion()
+            .requiresCorrectToolForDrops());
+    }
+}
+
+--- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockDirtyStone.java ---
+
+package com.bernardo.dbi.blocks;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+
+public class BlockDirtyStone extends Block {
+    public BlockDirtyStone() {
+        super(BlockBehaviour.Properties.of()
+            .strength(1.5f, 6.0f)
+            .sound(SoundType.STONE)
             .requiresCorrectToolForDrops());
     }
 }
@@ -1631,11 +1679,11 @@ public class BlockDragonBall7 extends BlockDragonBall {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall4 extends BlockDragonBall {
     public BlockDragonBall4() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(1.5f, 1.5f)
             .sound(SoundType.GLASS)
             .noOcclusion()
@@ -1648,15 +1696,48 @@ public class BlockDragonBall4 extends BlockDragonBall {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall2 extends BlockDragonBall {
     public BlockDragonBall2() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(1.0f, 1.0f)
             .sound(SoundType.GLASS)
             .noOcclusion()
             .requiresCorrectToolForDrops());
+    }
+}
+
+--- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockNamekGrass.java ---
+
+package com.bernardo.dbi.blocks;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+
+public class BlockNamekGrass extends Block {
+    public BlockNamekGrass() {
+        super(BlockBehaviour.Properties.of()
+            .strength(0.6f)
+            .sound(SoundType.GRASS)
+            .noOcclusion());
+    }
+}
+
+--- ARQUIVO: src/main/java/com/bernardo/dbi/blocks/BlockNamekDirty.java ---
+
+package com.bernardo.dbi.blocks;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+
+public class BlockNamekDirty extends Block {
+    public BlockNamekDirty() {
+        super(BlockBehaviour.Properties.of()
+            .strength(0.5f)
+            .sound(SoundType.GRAVEL));
     }
 }
 
@@ -1665,11 +1746,11 @@ public class BlockDragonBall2 extends BlockDragonBall {
 package com.bernardo.dbi.blocks;
 
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.material.Material;
+
 
 public class BlockDragonBall6 extends BlockDragonBall {
     public BlockDragonBall6() {
-        super(Properties.of(Material.STONE)
+        super(Properties.of()
             .strength(3.0f, 3.0f)
             .sound(SoundType.GLASS)
             .noOcclusion()
@@ -1949,7 +2030,14 @@ public class SyncRaceCapPacket {
   "key.categories.dbi": "Dragon Block Infinity",
   "key.dbi.open_menu": "Abrir Menu de Personagem",
   "gui.dbi.character_menu": "Menu do Personagem",
-  "gui.dbi.button.close": "Fechar"
+  "gui.dbi.button.close": "Fechar",
+  "block.dragonblockinfinity.block_dragonball1": "Esfera do Dragão ★",
+  "block.dragonblockinfinity.block_dragonball2": "Esfera do Dragão ★★",
+  "block.dragonblockinfinity.block_dragonball3": "Esfera do Dragão ★★★",
+  "block.dragonblockinfinity.block_dragonball4": "Esfera do Dragão ★★★★",
+  "block.dragonblockinfinity.block_dragonball5": "Esfera do Dragão ★★★★★",
+  "block.dragonblockinfinity.block_dragonball6": "Esfera do Dragão ★★★★★★",
+  "block.dragonblockinfinity.block_dragonball7": "Esfera do Dragão ★★★★★★★"
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/lang/en_us.json ---
@@ -1958,7 +2046,14 @@ public class SyncRaceCapPacket {
   "key.categories.dbi": "Dragon Block Infinity",
   "key.dbi.open_menu": "Open Character Menu",
   "gui.dbi.character_menu": "Character Menu",
-  "gui.dbi.button.close": "Close"
+  "gui.dbi.button.close": "Close",
+  "block.dragonblockinfinity.block_dragonball1": "Dragon Ball ★",
+  "block.dragonblockinfinity.block_dragonball2": "Dragon Ball ★★",
+  "block.dragonblockinfinity.block_dragonball3": "Dragon Ball ★★★",
+  "block.dragonblockinfinity.block_dragonball4": "Dragon Ball ★★★★",
+  "block.dragonblockinfinity.block_dragonball5": "Dragon Ball ★★★★★",
+  "block.dragonblockinfinity.block_dragonball6": "Dragon Ball ★★★★★★",
+  "block.dragonblockinfinity.block_dragonball7": "Dragon Ball ★★★★★★★"
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/entity/nuvem.geo.json ---
@@ -2914,6 +3009,10 @@ public class SyncRaceCapPacket {
   "parent": "dragonblockinfinity:block/dragon_block1_earth"
 }
 
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball4.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock4"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dragon_block3_earth.json ---
 
 {
@@ -2975,6 +3074,10 @@ public class SyncRaceCapPacket {
     }
   }
 }
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball2.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock2"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/radar.json ---
 
 {
@@ -3102,12 +3205,8 @@ public class SyncRaceCapPacket {
 }
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dirty_stone.json ---
 
-{
-  "mod_id": "dragonblockinfinity",
-  "texture_path": "textures/item/blocks/item_dirty_stone.png",
-  "texture_name": "item_dirty_stone",
-  "parent": "dragonblockinfinity:block/dirty_stone"
-}
+{"parent":"dragonblockinfinity:block/dirty_stone"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/namek_stone.json ---
 
 {
@@ -3118,65 +3217,8 @@ public class SyncRaceCapPacket {
 }
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dirty_stone_cobblestone.json ---
 
-{
-  "mod_id": "dragonblockinfinity",
-  "texture_path": "textures/blocks/block_dirty_stone_cobblestone.png",
-  "texture_name": "block_dirty_stone_cobblestone",
-  "parent": "dragonblockinfinity:block/dirty_stone_cobblestone",
-  "display": {
-    "gui": {
-      "rotation": [
-        30,
-        225,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.625,
-        0.625,
-        0.625
-      ]
-    },
-    "ground": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        3,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    },
-    "fixed": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    }
-  }
-}
+{"parent":"dragonblockinfinity:block/dirty_stone_cobblestone"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dino_meat.json ---
 
 {
@@ -3241,6 +3283,10 @@ public class SyncRaceCapPacket {
     }
   }
 }
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball7.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock7"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dragon_block1_earth.json ---
 
 {
@@ -3463,65 +3509,16 @@ public class SyncRaceCapPacket {
 }
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/namek_dirty.json ---
 
-{
-  "mod_id": "dragonblockinfinity",
-  "texture_path": "textures/blocks/block_namek_dirty.png",
-  "texture_name": "block_namek_dirty",
-  "parent": "dragonblockinfinity:block/namek_dirty",
-  "display": {
-    "gui": {
-      "rotation": [
-        30,
-        225,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.625,
-        0.625,
-        0.625
-      ]
-    },
-    "ground": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        3,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    },
-    "fixed": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    }
-  }
-}
+{"parent":"dragonblockinfinity:block/namek_dirty"}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball3.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock3"}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball1.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock1"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/dragon_block6_earth.json ---
 
 {
@@ -3742,67 +3739,18 @@ public class SyncRaceCapPacket {
     }
   }
 }
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball6.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock6"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/namek_grass.json ---
 
-{
-  "mod_id": "dragonblockinfinity",
-  "texture_path": "textures/blocks/block_namek_grass.png",
-  "texture_name": "block_namek_grass",
-  "parent": "dragonblockinfinity:block/namek_grass",
-  "display": {
-    "gui": {
-      "rotation": [
-        30,
-        225,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.625,
-        0.625,
-        0.625
-      ]
-    },
-    "ground": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        3,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    },
-    "fixed": {
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        0.5,
-        0.5,
-        0.5
-      ]
-    }
-  }
-}
+{"parent":"dragonblockinfinity:block/namek_grass"}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/block_dragonball5.json ---
+
+{"parent":"dragonblockinfinity:block/block_dragonblock5"}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/item/esfera_dragon_earth.json ---
 
 {
@@ -4218,101 +4166,93 @@ public class SyncRaceCapPacket {
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/block/dirty_stone.json ---
 
 {
-  "parent": "block/block",
-  "ambientocclusion": true,
-  "textures": {
-    "0": "dragonblockinfinity:block/block_dirty_stone_stone",
-    "particle": "dragonblockinfinity:block/block_dirty_stone_stone"
-  },
-  "elements": [
-    {
-      "from": [0, 0, 0],
-      "to": [16, 16, 16],
-      "faces": {
-        "north": {"uv": [4, 4, 8, 8], "texture": "#0", "cullface": "north"},
-        "east":  {"uv": [0, 4, 4, 8], "texture": "#0", "cullface": "east"},
-        "south": {"uv": [12, 4, 16, 8], "texture": "#0", "cullface": "south"},
-        "west":  {"uv": [8, 4, 12, 8], "texture": "#0", "cullface": "west"},
-        "up":    {"uv": [4, 0, 8, 4], "texture": "#0", "cullface": "up"},
-        "down":  {"uv": [8, 0, 12, 4], "texture": "#0", "cullface": "down"}
-      }
-    }
-  ]
+"parent": "block/block",
+"textures": {
+"1": "dragonblockinfinity:block/block_dirty_stone_stone"
+},
+"elements": [
+{
+"from": [0, 0, 0],
+"to": [16, 16, 16],
+"faces": {
+"north": {"uv": [4, 4, 8, 8], "texture": "#1", "cullface": "north"},
+"east":  {"uv": [0, 4, 4, 8], "texture": "#1", "cullface": "east"},
+"south": {"uv": [12, 4, 16, 8], "texture": "#1", "cullface": "south"},
+"west":  {"uv": [8, 4, 12, 8], "texture": "#1", "cullface": "west"},
+"up":    {"uv": [8, 4, 4, 0], "texture": "#1", "cullface": "up"},
+"down":  {"uv": [12, 0, 8, 4], "texture": "#1", "cullface": "down"}
+}
+}
+]
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/block/dirty_stone_cobblestone.json ---
 
 {
-  "parent": "block/block",
-  "ambientocclusion": true,
-  "textures": {
-    "0": "dragonblockinfinity:block/block_dirty_stone_cobblestone",
-    "particle": "dragonblockinfinity:block/block_dirty_stone_cobblestone"
-  },
-  "elements": [
-    {
-      "from": [0, 0, 0],
-      "to": [16, 16, 16],
-      "faces": {
-        "north": {"uv": [4, 4, 8, 8], "texture": "#0", "cullface": "north"},
-        "east":  {"uv": [0, 4, 4, 8], "texture": "#0", "cullface": "east"},
-        "south": {"uv": [12, 4, 16, 8], "texture": "#0", "cullface": "south"},
-        "west":  {"uv": [8, 4, 12, 8], "texture": "#0", "cullface": "west"},
-        "up":    {"uv": [4, 0, 8, 4], "texture": "#0", "cullface": "up"},
-        "down":  {"uv": [8, 0, 12, 4], "texture": "#0", "cullface": "down"}
-      }
-    }
-  ]
+"parent": "block/block",
+"textures": {
+"1": "dragonblockinfinity:block/block_dirty_stone_cobblestone"
+},
+"elements": [
+{
+"from": [0, 0, 0],
+"to": [16, 16, 16],
+"faces": {
+"north": {"uv": [4, 4, 8, 8], "texture": "#1", "cullface": "north"},
+"east":  {"uv": [0, 4, 4, 8], "texture": "#1", "cullface": "east"},
+"south": {"uv": [12, 4, 16, 8], "texture": "#1", "cullface": "south"},
+"west":  {"uv": [8, 4, 12, 8], "texture": "#1", "cullface": "west"},
+"up":    {"uv": [8, 4, 4, 0], "texture": "#1", "cullface": "up"},
+"down":  {"uv": [12, 0, 8, 4], "texture": "#1", "cullface": "down"}
+}
+}
+]
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/block/namek_dirty.json ---
 
 {
-  "parent": "block/block",
-  "ambientocclusion": true,
-  "textures": {
-    "0": "dragonblockinfinity:block/block_namek_dirty",
-    "particle": "dragonblockinfinity:block/block_namek_dirty"
-  },
-  "elements": [
-    {
-      "from": [0, 0, 0],
-      "to": [16, 16, 16],
-      "faces": {
-        "north": {"uv": [4, 4, 8, 8], "texture": "#0", "cullface": "north"},
-        "east":  {"uv": [0, 4, 4, 8], "texture": "#0", "cullface": "east"},
-        "south": {"uv": [12, 4, 16, 8], "texture": "#0", "cullface": "south"},
-        "west":  {"uv": [8, 4, 12, 8], "texture": "#0", "cullface": "west"},
-        "up":    {"uv": [4, 0, 8, 4], "texture": "#0", "cullface": "up"},
-        "down":  {"uv": [8, 0, 12, 4], "texture": "#0", "cullface": "down"}
-      }
-    }
-  ]
+"parent": "block/block",
+"textures": {
+"1": "dragonblockinfinity:block/block_namek_dirty"
+},
+"elements": [
+{
+"from": [0, 0, 0],
+"to": [16, 16, 16],
+"faces": {
+"north": {"uv": [4, 4, 8, 8], "texture": "#1", "cullface": "north"},
+"east":  {"uv": [0, 4, 4, 8], "texture": "#1", "cullface": "east"},
+"south": {"uv": [12, 4, 16, 8], "texture": "#1", "cullface": "south"},
+"west":  {"uv": [8, 4, 12, 8], "texture": "#1", "cullface": "west"},
+"up":    {"uv": [8, 4, 4, 0], "texture": "#1", "cullface": "up"},
+"down":  {"uv": [12, 0, 8, 4], "texture": "#1", "cullface": "down"}
+}
+}
+]
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/block/namek_grass.json ---
 
 {
-  "parent": "block/block",
-  "ambientocclusion": true,
-  "textures": {
-    "0": "dragonblockinfinity:block/block_namek_grass",
-    "particle": "dragonblockinfinity:block/block_namek_grass"
-  },
-  "elements": [
-    {
-      "from": [0, 0, 0],
-      "to": [16, 16, 16],
-      "faces": {
-        "north": {"uv": [4, 4, 8, 8], "texture": "#0", "cullface": "north"},
-        "east":  {"uv": [0, 4, 4, 8], "texture": "#0", "cullface": "east"},
-        "south": {"uv": [12, 4, 16, 8], "texture": "#0", "cullface": "south"},
-        "west":  {"uv": [8, 4, 12, 8], "texture": "#0", "cullface": "west"},
-        "up":    {"uv": [4, 0, 8, 4], "texture": "#0", "cullface": "up"},
-        "down":  {"uv": [8, 0, 12, 4], "texture": "#0", "cullface": "down"}
-      }
-    }
-  ]
+"parent": "block/block",
+"textures": {
+"1": "dragonblockinfinity:block/block_namek_grass"
+},
+"elements": [
+{
+"from": [0, 0, 0],
+"to": [16, 16, 16],
+"faces": {
+"north": {"uv": [4, 4, 8, 8], "texture": "#1", "cullface": "north"},
+"east":  {"uv": [0, 4, 4, 8], "texture": "#1", "cullface": "east"},
+"south": {"uv": [12, 4, 16, 8], "texture": "#1", "cullface": "south"},
+"west":  {"uv": [8, 4, 12, 8], "texture": "#1", "cullface": "west"},
+"up":    {"uv": [8, 4, 4, 0], "texture": "#1", "cullface": "up"},
+"down":  {"uv": [12, 0, 8, 4], "texture": "#1", "cullface": "down"}
+}
+}
+]
 }
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/models/mobs/dinossauro.json ---
@@ -5660,42 +5600,46 @@ public class SyncRaceCapPacket {
 		}
 	]
 }
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_5_earth.json ---
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball4.json ---
 
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block5_earth"}}}
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock4"}}}
 
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_3_earth.json ---
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball2.json ---
 
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block3_earth"}}}
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock2"}}}
 
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_2_earth.json ---
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dirty_stone.json ---
 
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block2_earth"}}}
-
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_4_earth.json ---
-
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block4_earth"}}}
-
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_6_earth.json ---
-
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block6_earth"}}}
-
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_1_earth.json ---
-
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block1_earth"}}}
+{"variants":{"":{"model":"dragonblockinfinity:block/dirty_stone"}}}
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dirty_stone_cobblestone.json ---
 
 {"variants":{"":{"model":"dragonblockinfinity:block/dirty_stone_cobblestone"}}}
 
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball7.json ---
+
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock7"}}}
+
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/namek_dirty.json ---
 
 {"variants":{"":{"model":"dragonblockinfinity:block/namek_dirty"}}}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball3.json ---
+
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock3"}}}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball1.json ---
+
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock1"}}}
+
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball6.json ---
+
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock6"}}}
 
 --- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/namek_grass.json ---
 
 {"variants":{"":{"model":"dragonblockinfinity:block/namek_grass"}}}
 
---- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/dragon_block_7_earth.json ---
+--- ARQUIVO: src/main/resources/assets/dragonblockinfinity/blockstates/block_dragonball5.json ---
 
-{"variants":{"":{"model":"dragonblockinfinity:block/dragon_block7_earth"}}}
+{"variants":{"":{"model":"dragonblockinfinity:block/block_dragonblock5"}}}

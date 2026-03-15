@@ -1,7 +1,8 @@
 package com.bernardo.dbi.client.screen;
 
 import com.bernardo.dbi.capability.PlayerRaceCap;
-import com.bernardo.dbi.client.screen.widget.DBIIconButton;
+import com.bernardo.dbi.client.screen.widget.BtnLeft;
+import com.bernardo.dbi.client.screen.widget.BtnRight;
 import com.bernardo.dbi.network.ModNetwork;
 import com.bernardo.dbi.network.packet.RaceSelectionPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -12,7 +13,6 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import org.joml.Quaternionf;
 
 import java.util.List;
 
@@ -35,19 +35,14 @@ public class CaracterScreen extends Screen {
     );
 
     private static final List<String> RACE_NAMES = List.of(
-        "Sayajin",
-        "Namekian",
-        "Half-Sayajin",
-        "Arcosiano",
-        "Humano"
+        "Sayajin", "Namekian", "Half-Sayajin", "Arcosiano", "Humano"
     );
 
     private int guiLeft, guiTop, menuW, menuH;
-    private String selectedRace = "";
     private int raceIndex = 0;
 
-    private DBIIconButton btnLeft;
-    private DBIIconButton btnRight;
+    private BtnLeft  btnLeft;
+    private BtnRight btnRight;
 
     public CaracterScreen() {
         super(Component.literal("Criação de Personagem"));
@@ -63,14 +58,12 @@ public class CaracterScreen extends Screen {
         );
         menuW = (int)(IMG_W * ratio);
         menuH = (int)(IMG_H * ratio);
-
         guiLeft = (this.width  - menuW) / 2;
         guiTop  = (this.height - menuH) / 2;
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
             player.getCapability(PlayerRaceCap.RACE_CAP).ifPresent(cap -> {
-                this.selectedRace = cap.getRace();
                 int idx = RACES.indexOf(cap.getRace());
                 if (idx >= 0) this.raceIndex = idx;
             });
@@ -79,8 +72,8 @@ public class CaracterScreen extends Screen {
         int panelCenterX = guiLeft + (int)(menuW * 0.16f);
         int btnY = guiTop + (int)(menuH * 0.08f);
 
-        btnLeft  = new DBIIconButton(panelCenterX - 30, btnY, DBIIconButton.Icon.LEFT,  b -> cycleRace(-1));
-        btnRight = new DBIIconButton(panelCenterX + 14, btnY, DBIIconButton.Icon.RIGHT, b -> cycleRace(+1));
+        btnLeft  = new BtnLeft (panelCenterX - 30, btnY, () -> cycleRace(-1));
+        btnRight = new BtnRight(panelCenterX + 14, btnY, () -> cycleRace(+1));
 
         this.addRenderableWidget(btnLeft);
         this.addRenderableWidget(btnRight);
@@ -88,7 +81,7 @@ public class CaracterScreen extends Screen {
 
     private void cycleRace(int dir) {
         raceIndex = (raceIndex + dir + RACES.size()) % RACES.size();
-        selectedRace = RACES.get(raceIndex);
+        String selectedRace = RACES.get(raceIndex);
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
@@ -98,12 +91,9 @@ public class CaracterScreen extends Screen {
                     cap.getBodyTypeIdx(), cap.getNoseIdx(), cap.getMouthIdx(),
                     cap.getEyeIdx(), cap.getBodyColor(), cap.getHairColor(), cap.getEyeColor());
             });
-
             ModNetwork.sendToServer(new RaceSelectionPacket(
-                selectedRace,
-                0, 0, 0, 0, 0, 0, 0,
-                0xFFD2956E, 0xFF1A1A1A, 0xFF1A1A1A
-            ));
+                selectedRace, 0, 0, 0, 0, 0, 0, 0,
+                0xFFD2956E, 0xFF1A1A1A, 0xFF1A1A1A));
         }
     }
 
@@ -114,39 +104,30 @@ public class CaracterScreen extends Screen {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
         g.blit(MENU, guiLeft, guiTop, menuW, menuH, 0, 0, IMG_W, IMG_H, TEX_W, TEX_H);
 
-        renderPlayerPanel(g, mouseX, mouseY);
+        // Player com renderEntityInInventoryFollowsMouse
+        Player player = Minecraft.getInstance().player;
+        if (player != null) {
+            int panelCenterX = guiLeft + (int)(menuW * 0.16f);
+            int panelCenterY = guiTop  + (int)(menuH * 0.60f);
+            int scale        = (int)(menuH * 0.22f);
+
+            InventoryScreen.renderEntityInInventoryFollowsMouse(
+                g, panelCenterX, panelCenterY, scale,
+                mouseX, mouseY,
+                (net.minecraft.world.entity.LivingEntity) player);
+        }
 
         g.drawCenteredString(this.font,
-                Component.literal("✦ Criação de Personagem ✦"),
-                guiLeft + menuW / 2, guiTop + 8, 0xFFD700);
+            Component.literal("✦ Criação de Personagem ✦"),
+            guiLeft + menuW / 2, guiTop + 8, 0xFFD700);
 
         int panelCenterX = guiLeft + (int)(menuW * 0.16f);
         int nameY = guiTop + (int)(menuH * 0.08f) + 4;
-        String raceName = RACE_NAMES.isEmpty() ? "" : RACE_NAMES.get(raceIndex);
-        g.drawCenteredString(this.font, Component.literal(raceName),
-                panelCenterX, nameY, 0xFFD700);
+        g.drawCenteredString(this.font,
+            Component.literal(RACE_NAMES.get(raceIndex)),
+            panelCenterX, nameY, 0xFFD700);
 
         super.render(g, mouseX, mouseY, partialTick);
-    }
-
-    private void renderPlayerPanel(GuiGraphics g, int mouseX, int mouseY) {
-        Player player = Minecraft.getInstance().player;
-        if (player == null) return;
-
-        int panelCenterX = guiLeft + (int)(menuW * 0.16f);
-        int panelCenterY = guiTop  + (int)(menuH * 0.60f);
-        int scale        = (int)(menuH * 0.22f);
-
-        float lookX = panelCenterX - mouseX;
-        float lookY = (guiTop + (menuH * 0.3f)) - mouseY;
-
-        Quaternionf bodyRotation = new Quaternionf()
-                .rotateY((float)Math.PI)
-                .rotateY((float)Math.atan2(lookX, 120f));
-        Quaternionf cameraRotation = new Quaternionf()
-                .rotateX((float)Math.atan2(lookY, 120f));
-
-        InventoryScreen.renderEntityInInventory(g, panelCenterX, panelCenterY, scale, bodyRotation, cameraRotation, (net.minecraft.world.entity.LivingEntity) player);
     }
 
     @Override
